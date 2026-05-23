@@ -29,4 +29,25 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-module.exports = { authMiddleware };
+const requireSubscription = async (req, res, next) => {
+  try {
+    const provider = await ProviderUser.findById(req.user.id);
+    if (!provider) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+    
+    if (provider.subscriptionStatus !== 'active' || 
+        (provider.subscriptionEndDate && provider.subscriptionEndDate < new Date())) {
+      return res.status(403).json({ 
+        message: 'Subscription expired. Please renew to continue receiving requests.',
+        subscriptionStatus: provider.subscriptionStatus
+      });
+    }
+    
+    next();
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { authMiddleware, requireSubscription };
