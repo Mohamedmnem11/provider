@@ -7,10 +7,10 @@ const providerServiceSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   category: {
     type: String,
-    enum: ['mechanic', 'electrician', 'tire', 'workshop', 'battery', 'fuel'],
+    enum: ['mechanic', 'electrician', 'tire', 'workshop', 'battery', 'fuel', 'towing'],
     required: true
   },
-  estimatedTime: { type: Number, default: 30 }, // دقائق
+  estimatedTime: { type: Number, default: 30 },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

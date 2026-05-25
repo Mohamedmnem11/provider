@@ -3,11 +3,14 @@ const {
   getMyRequests, getRequestById, updateRequestStatus, 
   acceptRequest, rejectRequest, updateAvailability 
 } = require('../controllers/requestController');
-const { authMiddleware, requireProfileComplete } = require('../middleware/auth');
+const { authMiddleware, requireSubscription } = require('../middleware/auth');
+
 const router = express.Router();
 
+// مصادقة مقدم الخدمة (بدون إلزامية إكمال الملف الشخصي)
 router.use(authMiddleware);
-router.use(requireProfileComplete);
+// اختياري: تفعيل اشتراط الاشتراك النشط
+// router.use(requireSubscription);
 
 router.get('/', getMyRequests);
 router.get('/:id', getRequestById);

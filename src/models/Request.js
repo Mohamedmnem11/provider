@@ -1,29 +1,77 @@
 const mongoose = require('mongoose');
 
 const requestSchema = new mongoose.Schema({
-  customerId: { type: String, required: true },     // ID العميل من نظام العملاء
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'CustomerUser', required: true },
   customerName: { type: String, required: true },
   customerPhone: { type: String, required: true },
-  customerLocation: {
-    lat: Number,
-    lng: Number,
-    address: String
+
+  // موقع بداية الخدمة (مكان العميل الحالي)
+  startLocation: {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+    address: { type: String, required: true }
   },
-  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProviderService', required: true },
-  serviceName: { type: String, required: true },
-  providerId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProviderUser', required: true },
+  // مكان الوجهة (إذا كان العميل يريد الذهاب إلى مكان آخر – اختياري)
+  destination: {
+    lat: { type: Number },
+    lng: { type: Number },
+    address: { type: String }
+  },
+
+  problemDescription: { type: String, default: '' },
+
+  // تقديرات
+  estimatedDistance: { type: Number, default: 0 },      // km
+  estimatedArrivalTime: { type: Number, default: 0 },   // minutes
+  estimatedPriceRange: { type: String, default: '' },   // للونش فقط
+
+  serviceType: {
+    type: String,
+    enum: ['mechanic', 'electrician', 'tire', 'workshop', 'battery', 'fuel', 'towing'],
+    required: true
+  },
+
+  assignedProviderId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProviderUser' },
+  assignedProviderName: { type: String },
+  assignedProviderPhone: { type: String },
+
+  // السعر المتفق عليه (للونش فقط)
+  agreedPrice: { type: Number },
+
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'rejected', 'on_the_way', 'in_progress', 'completed', 'cancelled'],
+    enum: ['pending', 'accepted', 'on_the_way', 'in_progress', 'completed', 'cancelled', 'timeout', 'rated'],
     default: 'pending'
   },
-  searchRadius: { type: Number, default: 20 } ,
-  notes: { type: String },
-  price: { type: Number },
+
+  // سبب الإلغاء
+  cancelReason: { type: String },
+  customCancelReason: { type: String },
+
+  // التقييم (بعد completed)
+  customerRating: { type: Number, min: 1, max: 5 },
+  customerReview: { type: String },
+  ratedAt: Date,
+
+  // توقيتات
+  createdAt: { type: Date, default: Date.now },
+  acceptedAt: Date,
   startedAt: Date,
   completedAt: Date,
-  customerRating: { type: Number, min: 1, max: 5 },
-  customerReview: String
-}, { timestamps: true });
+  timeoutAt: Date,        // وقت انتهاء مهلة الـ 15 ثانية
 
-module.exports = mongoose.model('ProviderRequest', requestSchema);
+  statusHistory: [{
+    status: String,
+    timestamp: { type: Date, default: Date.now },
+    note: String
+  }]
+});
+
+requestSchema.pre('save', function(next) {
+  if (this.isModified('status')) {
+    this.statusHistory.push({ status: this.status, timestamp: new Date() });
+  }
+  next();
+});
+
+module.exports = mongoose.models.ServiceRequest || mongoose.model('ServiceRequest', requestSchema);

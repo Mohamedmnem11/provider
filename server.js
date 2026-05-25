@@ -16,8 +16,8 @@ app.use(morgan('dev'));
 
 // Routes
 app.use('/api/provider/auth', require('./src/routes/authRoutes'));
-// app.use('/api/provider/services', require('./src/routes/serviceRoutes'));
-// app.use('/api/provider/requests', require('./src/routes/requestRoutes'));
+app.use('/api/provider/services', require('./src/routes/serviceRoutes'));
+app.use('/api/provider/requests', require('./src/routes/requestRoutes'));
 app.use('/api/provider/subscription', require('./src/routes/subscriptionRoutes'));
 // مسار تجريبي
 app.get('/', (req, res) => {
