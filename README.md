@@ -35,7 +35,7 @@ CLOUDINARY_API_SECRET=your_api_secret
 ### `POST /api/provider/auth/verify-otp`
 التحقق من الرمز (تسجيل/دخول)
 ```json
-{ "phone": "01010000001", "code": "123456", "name": "Mohamed" }
+{ "phone": "01010000001", "code": "123456" }
 ```
 
 ### `POST /api/provider/auth/login`
