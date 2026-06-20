@@ -77,9 +77,138 @@ exports.verifyOTP = async (req, res) => {
 };
 
 // ========== 3. إكمال الملف الشخصي ==========
+// exports.completeProfile = async (req, res) => {
+//   try {
+//     const { 
+//       name,
+//       specialties,
+//       experience,
+//       bio,
+//       location,
+//       serviceRange,
+//       prices
+//     } = req.body;
+    
+//     const userId = req.user.id;
+    
+//     const user = await ProviderUser.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     // ========== 1. تحديث الاسم ==========
+//     if (name && name.trim() !== '') {
+//       user.name = name;
+//     }
+    
+//     // ========== 2. تحديث التخصصات ==========
+//     if (specialties) {
+//       if (typeof specialties === 'string') {
+//         if (specialties.includes(',')) {
+//           user.specialties = specialties.split(',').map(s => s.trim());
+//         } else {
+//           user.specialties = [specialties];
+//         }
+//       } else if (Array.isArray(specialties)) {
+//         user.specialties = specialties;
+//       } else if (typeof specialties === 'object') {
+//         user.specialties = specialties;
+//       }
+//     }
+    
+//     // ========== 3. تحديث الخبرة ==========
+//     if (experience) {
+//       user.experience = parseInt(experience);
+//     }
+    
+//     // ========== 4. تحديث النبذة ==========
+//     if (bio && bio.trim() !== '') {
+//       user.bio = bio;
+//     }
+    
+//     // ========== 5. تحديث الموقع ==========
+//     if (location) {
+//       user.location = {
+//         lat: parseFloat(location.lat),
+//         lng: parseFloat(location.lng),
+//         address: location.address || ''
+//       };
+//     }
+    
+//     // ========== 6. تحديث نطاق الخدمة ==========
+//     if (serviceRange) {
+//       let range = parseInt(serviceRange);
+//       if (range < 1) range = 1;
+//       if (range > 50) range = 50;
+//       user.serviceRange = range;
+//     }
+    
+//     // ========== 7. تحديث الأسعار ==========
+//     if (prices) {
+//       if (prices.towing) user.towingPrice = parseFloat(prices.towing);
+//       if (prices.mechanic) user.mechanicPrice = parseFloat(prices.mechanic);
+//       if (prices.electrician) user.electricianPrice = parseFloat(prices.electrician);
+//       if (prices.tire) user.tirePrice = parseFloat(prices.tire);
+//       if (prices.workshop) user.workshopPrice = parseFloat(prices.workshop);
+//       if (prices.battery) user.batteryPrice = parseFloat(prices.battery);
+//       if (prices.fuel) user.fuelPrice = parseFloat(prices.fuel);
+//     }
+    
+//     // ========== 8. رفع الصور ==========
+//     const files = req.files;
+//     if (files) {
+//       if (files.idCardFront && files.idCardFront[0]) {
+//         user.idCardFront = files.idCardFront[0].originalname;
+//       }
+//       if (files.idCardBack && files.idCardBack[0]) {
+//         user.idCardBack = files.idCardBack[0].originalname;
+//       }
+//       if (files.selfie && files.selfie[0]) {
+//         user.selfie = files.selfie[0].originalname;
+//       }
+//       if (files.towLicenseFront && files.towLicenseFront[0]) {
+//         user.towLicenseFront = files.towLicenseFront[0].originalname;
+//       }
+//       if (files.towLicenseBack && files.towLicenseBack[0]) {
+//         user.towLicenseBack = files.towLicenseBack[0].originalname;
+//       }
+//     }
+    
+//     user.isProfileComplete = true;
+//     user.isApproved = false;
+//     await user.save();
+    
+//     res.status(200).json({
+//       message: 'Profile completed successfully. Waiting for admin approval.',
+//       user: {
+//         id: user._id,
+//         name: user.name,
+//         phone: user.phone,
+//         specialties: user.specialties,
+//         experience: user.experience,
+//         bio: user.bio,
+//         location: user.location,
+//         serviceRange: user.serviceRange,
+//         isApproved: user.isApproved,
+//         isProfileComplete: user.isProfileComplete
+//       }
+//     });
+    
+//   } catch (error) {
+//     console.error('❌ Error in completeProfile:', error);
+//     res.status(500).json({ 
+//       message: 'Error completing profile',
+//       error: error.message 
+//     });
+//   }
+// };
+
+
+
+
 exports.completeProfile = async (req, res) => {
   try {
-    const { 
+    let { 
       name,
       specialties,
       experience,
@@ -90,7 +219,6 @@ exports.completeProfile = async (req, res) => {
     } = req.body;
     
     const userId = req.user.id;
-    
     const user = await ProviderUser.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -98,7 +226,8 @@ exports.completeProfile = async (req, res) => {
     
     // ========== 1. تحديث الاسم ==========
     if (name && name.trim() !== '') {
-      user.name = name;
+      // إزالة علامات التنصيص الزائدة
+      user.name = name.replace(/^"|"$/g, '').trim();
     }
     
     // ========== 2. تحديث التخصصات ==========
@@ -128,10 +257,16 @@ exports.completeProfile = async (req, res) => {
     
     // ========== 5. تحديث الموقع ==========
     if (location) {
+      let parsedLocation = location;
+      if (typeof location === 'string') {
+        try {
+          parsedLocation = JSON.parse(location);
+        } catch (error) {}
+      }
       user.location = {
-        lat: parseFloat(location.lat),
-        lng: parseFloat(location.lng),
-        address: location.address || ''
+        lat: parseFloat(parsedLocation.lat) || 0,
+        lng: parseFloat(parsedLocation.lng) || 0,
+        address: parsedLocation.address || ''
       };
     }
     
@@ -145,32 +280,36 @@ exports.completeProfile = async (req, res) => {
     
     // ========== 7. تحديث الأسعار ==========
     if (prices) {
-      if (prices.towing) user.towingPrice = parseFloat(prices.towing);
-      if (prices.mechanic) user.mechanicPrice = parseFloat(prices.mechanic);
-      if (prices.electrician) user.electricianPrice = parseFloat(prices.electrician);
-      if (prices.tire) user.tirePrice = parseFloat(prices.tire);
-      if (prices.workshop) user.workshopPrice = parseFloat(prices.workshop);
-      if (prices.battery) user.batteryPrice = parseFloat(prices.battery);
-      if (prices.fuel) user.fuelPrice = parseFloat(prices.fuel);
+      let parsedPrices = prices;
+      if (typeof prices === 'string') {
+        try {
+          parsedPrices = JSON.parse(prices);
+        } catch (error) {}
+      }
+      
+      // ✅ استخدام towingPrice (موجود في Schema)
+      if (parsedPrices.towing) {
+        user.towingPrice = parseFloat(parsedPrices.towing);
+      }
     }
     
     // ========== 8. رفع الصور ==========
     const files = req.files;
     if (files) {
       if (files.idCardFront && files.idCardFront[0]) {
-        user.idCardFront = files.idCardFront[0].originalname;
+        user.idCardFront = files.idCardFront[0].filename;
       }
       if (files.idCardBack && files.idCardBack[0]) {
-        user.idCardBack = files.idCardBack[0].originalname;
+        user.idCardBack = files.idCardBack[0].filename;
       }
       if (files.selfie && files.selfie[0]) {
-        user.selfie = files.selfie[0].originalname;
+        user.selfie = files.selfie[0].filename;
       }
       if (files.towLicenseFront && files.towLicenseFront[0]) {
-        user.towLicenseFront = files.towLicenseFront[0].originalname;
+        user.towLicenseFront = files.towLicenseFront[0].filename;
       }
       if (files.towLicenseBack && files.towLicenseBack[0]) {
-        user.towLicenseBack = files.towLicenseBack[0].originalname;
+        user.towLicenseBack = files.towLicenseBack[0].filename;
       }
     }
     
@@ -178,6 +317,7 @@ exports.completeProfile = async (req, res) => {
     user.isApproved = false;
     await user.save();
     
+    // ✅ Response محسن
     res.status(200).json({
       message: 'Profile completed successfully. Waiting for admin approval.',
       user: {
@@ -189,8 +329,19 @@ exports.completeProfile = async (req, res) => {
         bio: user.bio,
         location: user.location,
         serviceRange: user.serviceRange,
+        prices: {
+          towing: user.towingPrice || 0
+        },
+        documents: {
+          idCardFront: user.idCardFront,
+          idCardBack: user.idCardBack,
+          selfie: user.selfie,
+          towLicenseFront: user.towLicenseFront,
+          towLicenseBack: user.towLicenseBack
+        },
         isApproved: user.isApproved,
-        isProfileComplete: user.isProfileComplete
+        isProfileComplete: user.isProfileComplete,
+        subscriptionStatus: user.subscriptionStatus
       }
     });
     
@@ -202,6 +353,20 @@ exports.completeProfile = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ========== 4. جلب الملف الشخصي ==========
 exports.getProfile = async (req, res) => {

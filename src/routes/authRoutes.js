@@ -18,7 +18,9 @@ router.post('/verify-otp', verifyOTP);
 router.post('/complete-profile', authMiddleware, upload.fields([
   { name: 'idCardFront', maxCount: 1 },
   { name: 'idCardBack', maxCount: 1 },
-  { name: 'selfie', maxCount: 1 }
+  { name: 'selfie', maxCount: 1 },
+  { name: 'towLicenseFront', maxCount: 1 },  // 👈 إضافة هذا
+  { name: 'towLicenseBack', maxCount: 1 }
 ]), completeProfile);
 router.get('/profile', authMiddleware, getProfile);
 router.patch('/availability', authMiddleware, updateAvailability);
