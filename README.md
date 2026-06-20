@@ -1,163 +1,247 @@
-# 🔧 Mech Rescue - Provider API
+## 📘 README.md – تطبيق مقدم الخدمة (Provider App)
 
-تطبيق مقدم الخدمة لإدارة طلبات تصليح السيارات
+> **ملخص ما تم إنجازه:** نظام كامل لإدارة مقدمي الخدمات (ميكانيكي، ونش، كهربائي، إطارات، ورشة، بطاريات، بنزين) مع تسجيل بالهاتف و OTP، اشتراكات، إدارة الخدمات، استقبال الطلبات مع مهلة 15 ثانية، حالات متعددة، أسباب إلغاء، وتقييمات.
 
-## 🚀 التشغيل
+---
 
-```bash
-npm install
-npm run dev
+## 🧰 التقنيات المستخدمة
+
+| التقنية | الغرض |
+|----------|--------|
+| Node.js + Express | السيرفر الخلفي |
+| MongoDB + Mongoose | قاعدة البيانات |
+| JWT | المصادقة |
+| Multer | رفع الصور (مؤقتاً) |
+| Cloudinary (جاهز للتكامل) | تخزين الصور الحقيقي |
+| OTP (محاكاة) | تجربة التحقق |
+
+---
+
+## 📁 هيكل المشروع
+
 ```
-السيرفر: `http://localhost:3002`
-
-## 📦 ملف `.env`
-
-```env
-PORT=3002
-MONGO_URI=mongodb://localhost:27017/mech-rescue-provider
-JWT_SECRET=provider_jwt_secret_key
-
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+provider-backend/
+├── .env
+├── package.json
+├── server.js
+├── seed.js
+├── src/
+│   ├── config/
+│   │   ├── database.js
+│   │   ├── cloudinary.js
+│   │   └── sms.js
+│   ├── models/
+│   │   ├── ProviderUser.js
+│   │   ├── ProviderOTP.js
+│   │   ├── ProviderService.js
+│   │   └── Request.js
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   ├── subscriptionController.js
+│   │   ├── serviceController.js
+│   │   └── requestController.js
+│   ├── routes/
+│   │   ├── authRoutes.js
+│   │   ├── subscriptionRoutes.js
+│   │   ├── serviceRoutes.js
+│   │   └── requestRoutes.js
+│   ├── middleware/
+│   │   ├── auth.js
+│   │   └── upload.js
+│   └── utils/
+│       ├── generateOTP.js
+│       ├── distance.js
+│       └── findNearestProviders.js
 ```
 
 ---
 
-## 🔐 المصادقة
+## 🗄️ نماذج قاعدة البيانات (Models) الرئيسية
 
-### `POST /api/provider/auth/send-otp`
-إرسال رمز التحقق
-```json
+### ProviderUser
+| الحقل | النوع | ملاحظات |
+|-------|-------|---------|
+| name | String | اسم مقدم الخدمة |
+| phone | String | فريد، إجباري |
+| specialties | [String] | `mechanic`, `towing`, `electrician`, `tire`, `workshop`, `battery`, `fuel` |
+| location {lat,lng,address} | Object | الموقع الجغرافي |
+| serviceRange | Number | نطاق الخدمة بالكيلومترات (1-50) |
+| towingPrice | Number | سعر الونش فقط |
+| subscriptionStatus | String | `pending`, `active`, `expired`, `cancelled` |
+| subscriptionEndDate | Date | تاريخ انتهاء الاشتراك |
+| isApproved | Boolean | موافقة الإدارة |
+| isOnline | Boolean | متاح حالياً للطلبات |
+| rating | Number | متوسط التقييم |
+| totalRatings | Number | عدد التقييمات |
+
+### Request (الطلب الوارد)
+| الحقل | النوع | ملاحظات |
+|-------|-------|---------|
+| customerName, customerPhone | String | بيانات العميل |
+| startLocation {lat,lng,address} | Object | موقع بداية الخدمة (إجباري) |
+| destination {lat,lng,address} | Object | اختياري |
+| problemDescription | String | وصف المشكلة |
+| estimatedDistance, estimatedArrivalTime | Number | تقديرات |
+| estimatedPriceRange | String | للونش فقط |
+| serviceType | String | نوع الخدمة |
+| assignedProviderId | ObjectId | مقدم الخدمة المعين |
+| status | String | `pending`, `accepted`, `on_the_way`, `in_progress`, `completed`, `cancelled`, `timeout`, `rated` |
+| cancelReason, customCancelReason | String | أسباب الإلغاء |
+| customerRating, customerReview | Number, String | التقييم بعد الإنجاز |
+
+---
+
+## 🔐 المصادقة (Authentication)
+
+جميع الـ APIs (عدا تسجيل الدخول) تتطلب **Bearer Token** في الـ Header.
+
+### 1. إرسال OTP
+
+```http
+POST /api/provider/auth/send-otp
+Content-Type: application/json
+
 { "phone": "01010000001" }
 ```
 
-### `POST /api/provider/auth/verify-otp`
-التحقق من الرمز (تسجيل/دخول)
-```json
+### 2. التحقق من OTP وتسجيل الدخول
+
+```http
+POST /api/provider/auth/verify-otp
+Content-Type: application/json
+
 { "phone": "01010000001", "code": "123456" }
 ```
 
-### `POST /api/provider/auth/login`
-تسجيل الدخول (للمستخدمين الموجودين)
-```json
-{ "email": "mohamed@example.com", "password": "123456" }
-```
-
-### `GET /api/provider/auth/profile`
-جلب الملف الشخصي (يتطلب Token)
-
-### `PUT /api/provider/auth/profile`
-تحديث الملف الشخصي
-```json
-{ "specialties": ["mechanic"], "price": 150, "experience": 10 }
-```
-
-### `PATCH /api/provider/auth/availability`
-تغيير حالة التوفر
-```json
-{ "isOnline": true }
-```
+> **الرد** يعيد `token` ويخبر إذا كان المستخدم جديداً (isNewUser) أم لا.
 
 ---
 
-## 📄 إكمال الملف الشخصي
+## 📋 جميع الـ Endpoints (المنجز)
 
-### `POST /api/provider/auth/complete-profile`
-رفع المستندات والموقع (multipart/form-data)
+### 🔹 الملف الشخصي والاشتراك
 
-| الحقل | النوع | الوصف |
-|-------|------|-------|
-| `nationalId` | text | الرقم القومي 14 رقم |
-| `specialties` | text | `["mechanic"]` |
-| `location[lat]` | text | خط العرض |
-| `location[lng]` | text | خط الطول |
-| `location[address]` | text | العنوان |
-| `serviceRange` | text | نطاق الخدمة (كم) |
-| `experience` | text | سنوات الخبرة |
-| `bio` | text | نبذة تعريفية |
-| `price` | text | سعر الخدمة |
-| `idCardFront` | file | صورة وجه البطاقة |
-| `idCardBack` | file | صورة ظهر البطاقة |
-| `selfie` | file | صورة شخصية |
+| الطريقة | المسار | الوصف | ملاحظات |
+|---------|--------|-------|----------|
+| `GET` | `/api/provider/auth/profile` | جلب الملف الشخصي | – |
+| `PUT` | `/api/provider/auth/profile` | تحديث الملف الشخصي (جزئي) | – |
+| `POST` | `/api/provider/auth/complete-profile` | إكمال الملف الشخصي (اسم، تخصصات، موقع، صور، أسعار للونش) | `multipart/form-data` |
+| `PATCH` | `/api/provider/auth/availability` | تغيير الحالة (Online/Offline) | `{ "isOnline": true }` |
+| `POST` | `/api/provider/subscription/activate` | تفعيل الاشتراك | `{ "plan": "premium", "durationDays": 30 }` |
+| `GET` | `/api/provider/subscription/status` | حالة الاشتراك | – |
+| `POST` | `/api/provider/subscription/renew` | تجديد الاشتراك | `{ "durationDays": 30 }` |
 
----
+### 🔹 إدارة الخدمات (اختياري – يمكن إلغاؤه)
 
-## 🔧 الخدمات
+| الطريقة | المسار | الوصف |
+|---------|--------|-------|
+| `POST` | `/api/provider/services` | إضافة خدمة (اسم، سعر، فئة) |
+| `GET` | `/api/provider/services` | جلب جميع خدمات مقدم الخدمة |
+| `PUT` | `/api/provider/services/:id` | تحديث خدمة |
+| `DELETE` | `/api/provider/services/:id` | حذف خدمة |
 
-### `POST /api/provider/services`
-إضافة خدمة (يتطلب Token)
-```json
-{ "name": "ونش إنقاذ", "price": 350, "category": "towing", "estimatedTime": 20 }
-```
+> **ملاحظة:** الأسعار الأساسية موجودة في نموذج `ProviderUser` (مثل `towingPrice`). هذا الـ API إضافي.
 
-### `GET /api/provider/services`
-جلب جميع خدماتي
+### 🔹 الطلبات الواردة
 
-### `PUT /api/provider/services/:id`
-تحديث خدمة
+| الطريقة | المسار | الوصف | Body |
+|---------|--------|-------|------|
+| `GET` | `/api/provider/requests` | جلب جميع الطلبات المخصصة لمقدم الخدمة | – |
+| `GET` | `/api/provider/requests/:id` | تفاصيل طلب معين | – |
+| `POST` | `/api/provider/requests/:id/accept` | قبول الطلب (خلال 15 ثانية) | – |
+| `POST` | `/api/provider/requests/:id/reject` | رفض الطلب مع سبب | `{ "cancelReason": "distance_too_far" }` أو `{ "cancelReason": "other", "customCancelReason": "..." }` |
+| `PATCH` | `/api/provider/requests/:id/status` | تحديث الحالة (`accepted` → `on_the_way` → `in_progress` → `completed`) | `{ "status": "on_the_way" }` |
 
-### `DELETE /api/provider/services/:id`
-حذف خدمة
-
-**فئات الخدمات:** `mechanic` | `electrician` | `tire` | `workshop` | `battery` | `fuel` | `towing`
+> **أسباب الإلغاء المقبولة:**  
+> `accepted_by_mistake`, `unsafe_location`, `customer_not_responding`, `distance_too_far`, `vehicle_breakdown`, `emergency_case`, `other`.
 
 ---
 
-## 📋 الطلبات
+## ⏱️ آلية الطلب والمهلة (Timeout)
 
-### `GET /api/provider/requests`
-جلب الطلبات المخصصة لي
-
-### `POST /api/provider/requests/:id/accept`
-قبول طلب
-
-### `POST /api/provider/requests/:id/reject`
-رفض طلب
-```json
-{ "reason": "خارج نطاق الخدمة" }
-```
-
-### `PATCH /api/provider/requests/:id/status`
-تحديث حالة الطلب
-```json
-{ "status": "on_the_way" }
-```
-
-**حالات الطلب المسموحة:** `accepted` → `on_the_way` → `in_progress` → `completed`
+- الطلب ينشأ بحالة `pending`.
+- مقدم الخدمة لديه **15 ثانية** ليقوم بقبوله (عبر `accept`).
+- إذا انقضت 15 ثانية دون قبول، تتحول الحالة تلقائياً إلى `timeout` (لا يمكن قبوله بعد ذلك).
 
 ---
 
-## 🏷️ التخصصات
+## ⭐ التقييمات (Rating)
 
-| القيمة | المعنى |
+- بعد أن يصبح الطلب `completed`، يمكن للعميل (عبر Customer API) إرسال تقييم (1-5 نجوم + تعليق اختياري).
+- يتم تحديث متوسط تقييم مقدم الخدمة (`rating`) وعدد التقييمات (`totalRatings`) في نموذج `ProviderUser`.
+
+---
+
+## 🚀 إعداد وتشغيل المشروع
+
+1. **استنساخ المشروع**  
+   `git clone <repo>`
+2. **تثبيت الحزم**  
+   `npm install`
+3. **إعداد ملف `.env`** (مثال):
+   ```env
+   PORT=3002
+   MONGO_URI=mongodb://localhost:27017/mech-rescue-provider
+   JWT_SECRET=your_secret_key
+   CLOUDINARY_CLOUD_NAME=...
+   CLOUDINARY_API_KEY=...
+   CLOUDINARY_API_SECRET=...
+   ```
+4. **تشغيل السيرفر**  
+   `nodemon server`
+5. **إضافة بيانات تجريبية (seed)**  
+   `node seed.js`  
+   سينشئ مقدم خدمة (`01010000001`) وثلاثة طلبات تجريبية.
+
+---
+
+## ✅ ما تم إنجازه بالكامل في هذا التطبيق
+
+| الميزة | الحالة |
 |--------|--------|
-| `mechanic` | ميكانيكي |
-| `electrician` | كهربائي |
-| `tire` | إطارات |
-| `workshop` | ورشة |
-| `battery` | بطاريات |
-| `fuel` | بنزين |
+| تسجيل/دخول بـ OTP (محاكاة) | ✅ |
+| إدارة الملف الشخصي (اسم، تخصصات، موقع، صور مؤقتة، أسعار للونش فقط) | ✅ |
+| نظام الاشتراكات (تفعيل، تجديد، صلاحية) | ✅ |
+| تغيير حالة التوفر (Online/Offline) | ✅ |
+| استقبال الطلبات الواردة (مع بيانات العميل، الموقع، الوجهة، وصف المشكلة، تقديرات) | ✅ |
+| قبول/رفض الطلبات مع أسباب الإلغاء | ✅ |
+| مهلة 15 ثانية (timeout) | ✅ |
+| تحديث حالة الطلب (accepted → on_the_way → in_progress → completed) | ✅ |
+| التقييم (rating) والتحديث التلقائي لمتوسط التقييم | ✅ |
+| قاعدة بيانات جاهزة (Models) | ✅ |
+| إدارة خدمات إضافية (اختياري) | ✅ |
 
 ---
 
-## 🧪 إضافة بيانات تجريبية
+## ⚠️ ملاحظات – ما لم ينجز بعد
 
-```bash
-node seed.js
+- **رفع الصور حقيقياً** إلى Cloudinary (يتم حالياً تخزين `originalname` فقط – سهل التكامل لاحقاً).
+- **إرسال OTP حقيقي** عبر WhatsApp Cloud API أو Twilio (محاكاة `console.log` حالياً).
+- **Admin Panel** لقبول مقدمي الخدمة (`isApproved`) ومراجعة المستندات.
+- **واجهة المستخدم (UI)** لتطبيق مقدم الخدمة (React Native / Flutter).
+
+---
+
+## 📎 ملحق: مثال على طلب `complete-profile` (multipart/form-data)
+
+```
+POST /api/provider/auth/complete-profile
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+name: محمد علي
+specialties: ["towing","mechanic"]
+experience: 10
+bio: ونش إنقاذ وميكانيكي
+location[lat]: 31.0450
+location[lng]: 31.3850
+location[address]: المنصورة، شارع الجيش
+serviceRange: 25
+prices[towing]: 350
+idCardFront: (file)
+idCardBack: (file)
+selfie: (file)
+towLicenseFront: (file)
+towLicenseBack: (file)
 ```
 
----
-
-## ⚠️ ملاحظات
-
-- الـ OTP حالياً **محاكاة** (يظهر في التيرمنال)
-- الصور تُرفع إلى **Cloudinary** (مجاني)
-- `isApproved` يحتاج موافقة إدارة
-
----
-
-## 🔗 الروابط
-
-- **Customer API**: `http://localhost:3000`
-- **Provider API**: `http://localhost:3002`
